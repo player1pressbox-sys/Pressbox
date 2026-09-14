@@ -8,13 +8,13 @@ const PB_URL = process.env.PRESSBOX_SUPABASE_URL || SUPABASE_URL;
 const PB_KEY = process.env.PRESSBOX_SUPABASE_KEY || SUPABASE_ANON_KEY;
 
 async function verifyAuth(token: string) {
-  const userResp = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` },
+  const userResp = await fetch(`${PB_URL}/auth/v1/user`, {
+    headers: { apikey: PB_KEY, Authorization: `Bearer ${token}` },
   });
   if (!userResp.ok) return null;
   const user = await userResp.json();
-  const dirResp = await fetch(`${SUPABASE_URL}/rest/v1/pressbox_directors?auth_user_id=eq.${user.id}&select=*`, {
-    headers: { apikey: SUPABASE_ANON_KEY },
+  const dirResp = await fetch(`${PB_URL}/rest/v1/pressbox_directors?auth_user_id=eq.${user.id}&select=*`, {
+    headers: { apikey: PB_KEY },
   });
   const dirData = await dirResp.json();
   const director = Array.isArray(dirData) && dirData.length > 0 ? dirData[0] : null;
