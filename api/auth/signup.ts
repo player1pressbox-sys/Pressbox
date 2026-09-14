@@ -23,7 +23,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
       authResult = await signupResp.json();
       if (!signupResp.ok) throw { code: authResult.error_code, message: authResult.msg || authResult.error_description };
-      userId = authResult.user?.id;
+      userId = authResult.user?.id || authResult.id;
     } catch (signupErr: any) {
       if (signupErr.code === 'user_already_exists' || (signupErr.message || '').includes('already registered')) {
         // Login instead
@@ -34,7 +34,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
         authResult = await loginResp.json();
         if (!loginResp.ok) throw new Error(authResult.msg || 'Login failed');
-        userId = authResult.user?.id;
+        userId = authResult.user?.id || authResult.id;
       } else {
         throw signupErr;
       }
@@ -56,17 +56,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       headers: { apikey: PB_KEY, 'Content-Type': 'application/json', Prefer: 'return=representation' },
       body: JSON.stringify({
         auth_user_id: userId, email, name,
-        organization_name: organizationName, role: 'director', status: 'pending', phone,
+        organization_name: organizationName, role: 'admin', status: 'active', phone,
       }),
     });
     const director = await insertResp.json();
     if (!insertResp.ok) throw new Error(director.message || 'Failed to create director profile');
 
+    // If email confirmation is required, there's no access_token yet
+    const accessToken = authResult.access_token || null;
+    const user = authResult.user || { id: userId, email };
+
     res.json({
-      user: authResult.user,
-      accessToken: authResult.access_token,
+      user,
+      accessToken,
       director: Array.isArray(director) ? director[0] : director,
-      message: 'Account created. An admin will approve your account.',
+      message: accessToken ? 'Account created successfully.' : 'Account created. Check your email to confirm, then log in.',
     });
   } catch (e: any) {
     res.status(400).json({ error: e.message });
