@@ -2,6 +2,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || '';
+const PB_URL = process.env.PRESSBOX_SUPABASE_URL || SUPABASE_URL;
+const PB_KEY = process.env.PRESSBOX_SUPABASE_KEY || SUPABASE_ANON_KEY;
 const QUO_API_KEY = process.env.QUO_API_KEY || '';
 const QUO_BASE_URL = 'https://api.quo.com/v1';
 
@@ -14,14 +16,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const token = authHeader.substring(7);
 
   try {
-    const userResp = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` },
+    const userResp = await fetch(`${PB_URL}/auth/v1/user`, {
+      headers: { apikey: PB_KEY, Authorization: `Bearer ${token}` },
     });
     if (!userResp.ok) return res.status(401).json({ error: 'Invalid token' });
     const user = await userResp.json();
 
-    const dirResp = await fetch(`${SUPABASE_URL}/rest/v1/pressbox_directors?auth_user_id=eq.${user.id}&select=*`, {
-      headers: { apikey: SUPABASE_ANON_KEY },
+    const dirResp = await fetch(`${PB_URL}/rest/v1/pressbox_directors?auth_user_id=eq.${user.id}&select=*`, {
+      headers: { apikey: PB_KEY },
     });
     const dirData = await dirResp.json();
     const director = Array.isArray(dirData) && dirData.length > 0 ? dirData[0] : null;
