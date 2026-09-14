@@ -29,17 +29,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const director = Array.isArray(dirData) && dirData.length > 0 ? dirData[0] : null;
     if (!director || director.status !== 'active') return res.status(403).json({ error: 'Account not active' });
 
-    // Fetch Quo phone numbers
-    const quoResp = await fetch(`${QUO_BASE_URL}/phone_numbers`, {
+    // Fetch Quo phone numbers (correct endpoint: /phone-numbers with hyphen)
+    const quoResp = await fetch(`${QUO_BASE_URL}/phone-numbers`, {
       headers: { Authorization: QUO_API_KEY },
     });
     const quoData = await quoResp.json();
     if (!quoResp.ok) return res.status(500).json({ error: quoData.message || 'Quo API error' });
 
-    const numbers = (quoData.phone_numbers || quoData || []).map((n: any) => ({
+    const numbers = (quoData.data || quoData.phone_numbers || quoData || []).map((n: any) => ({
       id: n.id,
-      number: n.phone_number,
-      label: n.label || n.name || n.phone_number,
+      number: n.number || n.phone_number,
+      label: n.name || n.label || n.formattedNumber || n.number || n.phone_number,
     }));
     res.json(numbers);
   } catch (e: any) {

@@ -163,6 +163,7 @@ export default function CampaignStudio() {
           from: selectedFrom,
           recipients: selectedPhones,
           content: smsContent,
+          phoneNumberId: quoNumbers.find(n => n.number === selectedFrom)?.id,
         }),
       });
       const data = await resp.json();

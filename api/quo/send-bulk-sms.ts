@@ -29,22 +29,58 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const director = Array.isArray(dirData) && dirData.length > 0 ? dirData[0] : null;
     if (!director || director.status !== 'active') return res.status(403).json({ error: 'Account not active' });
 
-    const { content, from, recipients } = req.body;
+    const { content, from, recipients, phoneNumberId } = req.body;
     if (!content || !from || !recipients || recipients.length === 0) {
       return res.status(400).json({ error: 'Message, from number, and recipients are required' });
     }
 
+    // Normalize recipient phone numbers to E.164 format
     const numbers = Array.isArray(recipients) ? recipients : [recipients];
+    const normalizedTo = numbers.map((n: string) => {
+      let num = n.replace(/[^0-9+]/g, '');
+      if (!num.startsWith('+')) {
+        num = num.startsWith('1') ? '+' + num : '+1' + num;
+      }
+      return num;
+    });
+
+    // Quo API requires: from (E.164), to (array), participants (array), phoneNumberId, content
+    // Send in chunks of 50
     const CHUNK_SIZE = 50;
     const results: any[] = [];
 
-    for (let i = 0; i < numbers.length; i += CHUNK_SIZE) {
-      const chunk = numbers.slice(i, i + CHUNK_SIZE);
+    for (let i = 0; i < normalizedTo.length; i += CHUNK_SIZE) {
+      const chunk = normalizedTo.slice(i, i + CHUNK_SIZE);
       try {
+        const body: any = {
+          from: from,
+          to: chunk,
+          participants: chunk,
+          content: content,
+        };
+        // Include phoneNumberId if provided (from the phone numbers list)
+        if (phoneNumberId) {
+          body.phoneNumberId = phoneNumberId;
+        } else {
+          // Try to find the phone number ID by looking up phone numbers
+          const pnResp = await fetch(`${QUO_BASE_URL}/phone-numbers`, {
+            headers: { Authorization: QUO_API_KEY },
+          });
+          const pnData = await pnResp.json();
+          const pnList = pnData.data || pnData.phone_numbers || pnData || [];
+          const match = pnList.find((p: any) => {
+            const pnNum = (p.number || p.phone_number || '').replace(/[^0-9+]/g, '');
+            return pnNum === from.replace(/[^0-9+]/g, '');
+          });
+          if (match) {
+            body.phoneNumberId = match.id;
+          }
+        }
+
         const quoResp = await fetch(`${QUO_BASE_URL}/messages`, {
           method: 'POST',
           headers: { Authorization: QUO_API_KEY, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content: content, from: from, to: chunk }),
+          body: JSON.stringify(body),
         });
         const quoData = await quoResp.json();
         if (!quoResp.ok) throw new Error(quoData.message || 'Quo API error');
@@ -59,7 +95,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     res.json({
       success: failed === 0,
-      total: numbers.length,
+      total: normalizedTo.length,
       succeeded,
       failed,
       results,
